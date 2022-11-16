@@ -1,58 +1,53 @@
 # CharacterController2D
-## 简介
-如果你在Unity2D中使用过刚体之类的东西来控制你的角色并且试图用它在斜坡上移动，
-那么你会发现这行不通并且要在这之上解决这个问题可能有点麻烦，至少对我来说是这样，
-所以我自己写了一个用来解决这个问题的东西，灵感来自CharacterController，
-但其实我没有用过CharacterController，所以这个东西只是满足了我的使用需求，
-如果你也在烦恼Unity2D中的斜坡，也许可以试试这个
- 
- 
-## 使用
-我试图让它使用起来比较简单
- 
-虽然碰撞全是用代码实现的，但它仍要求一个BoxCollider2D来画出角色的大致大小，
-里面的很多数值也是根据BoxCollider2D的大小按比例调整的，还有就是你需要自己来写重力，
- 
- 
-### platformMask
-把它挂在角色上之后，吧platformMask选为你的地图的图层，角色只会和地图碰撞
- 
- 
-### CheckDistance
-我是通过射线来实现碰撞的，verticalCheckDistance和horizontalCheckDistance
-就是竖直方向和水平方向的射线长度
- 
- 
-### RayDistance
-这是射线之间的距离，可以理解为碰撞器的宽度
- 
-#### horizontalRayDistance
-这就是水平射线之间的距离，决定水平方向碰撞的宽度
- 
-#### specialRayDistance
-虽然它特殊但他又不特殊，当角色爬斜坡的时候，我不想看到它用碰撞器的角站在斜坡上，
-所以这个越窄竖直的碰撞器越窄，角色就越能和斜坡贴合。还有就是它也决定了向上移动的时候
-碰撞器的宽度，所以当他调小之后角色更不容易被头顶的物体卡住
- 
-#### verticalRayDistance
-竖直方向射线之间的距离，也就是竖直方向的碰撞宽度，
-但是排除了上面的几种情况后基本上只有下落的时候会用上它，
-调高之后角色能更容易落在平台上
- 
-### CollisionHardness
-因为角色的水平和竖直方向的碰撞宽度可以调小，所以会经常卡进墙里，而这个就是弹出来的速度，
-调小了之后碰撞弹出等过程会更慢，在跨越各种地形时会更顺滑
- 
-### gripDegree
-这个东西简单的说就是在地面时向下的速度，听起来有点怪，但这是我让角色能贴合地面的方法，
-它保证了对地面的正确判定，但太高在离开平台时可能会有向下瞬移的问题
- 
+English | [中文](README_ch.md)
 
-## 缺点
-因为它只是满足了我的需求，有一些我发现了但是对我来说没有影响的问题我没有去修复，
-根据我的记忆目前有那么一个缺陷，如果horizontalRayDistance太大而specialRayDistance太小
-会影响爬斜坡
+## Introduction
 
- 
-## 感谢
-感谢Bitool教我怎么整理代码，他让我的代码能够看的像代码
+If you have attempted to control your character using Rigidbody2D in Unity 2D and tried to have it moving on slopes, you may find that it doesn't work and can get tricky to fix, at least for me. This repository is my solution to this problem, inspired by `CharacterController` (though I haven't used `CharacterController` before). Basically, it's built around my own needs, but if you're banging your head against the slopes in Unity 2D like I was, you may find this helpful too.
+
+
+## Usage
+I intend to make it simple to use.
+
+Although I implemented the collisions manually, it still requires a `BoxCollider2D` to indicate the rough size of the character. Many underlying values are adjusted proportionally to the size of the `BosCollider2D`. Additionally, you need to implement gravity by yourself.
+
+
+### `platformMask`
+Select the ground layer of your scene then the character will only collide with the ground.
+
+### `verticalCheckDistance` and `horizontalCheckDistance`
+I implement collision detection using rays. `verticalCheckDistance` and `horizontalCheckDistance` is the length of the rays in the two directions.
+
+### Ray Distance
+This is the distance between the rays. It can be interpreted as the width of the collider
+
+#### `horizontalRayDistance`
+This is the distance between the horizontal rays. It determines the collider's width in the horizontal direction.
+
+#### `specialRayDistance`
+When the character is climbing a slope, it is undesirable to have it standing on one of its vertices.
+
+The smaller this value is, the narrower the vertical collider is, and the character's feet will be better fitted into the slope.
+
+It also determines the wideness of the collider when the character is moving upwards, so when this value is smaller, the character is less likely to get stuck by objects over their head.
+
+#### `verticalRayDistance`
+This is the distance between the vertical rays. It determines the collider's width in the vertical direction.
+
+However, given the aforementioned scenarios, this value comes into play almost only when the character is landing from a fall.
+
+The larger this value is, the easier the character lands on platforms.
+
+### `collisionHardness`
+As the ray distances in the vertical and horizontal directions can be lowered, it's possible for the character to stuck into walls. This value controls the speed at which the character gets expelled from walls.
+
+The smaller this value is, the slower the character gets expelled from walls, but the smoother the character navigates across various terrains.
+
+### `gripDegree`
+In a nutshell, this is the downward speed of the character when standing on the ground. It may sound a bit weird, but it's my way to keep the character on the ground. However, a large value may cause the character to suddenly plunge when leaving a platform.
+
+## Limitations
+As this project is built around my needs, some minor glitches that have no impact on my use are left unfixed. For instance (if I remembered correctly), if the `horizontalRayDistance` is too large and the `specialRayDistance` is too small, the character would have some problem climbing slopes.
+
+## Acknowledgement
+I would like to thank Bitool for teaching me how to organize my code. It is with his help that my code became readable.
