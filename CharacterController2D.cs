@@ -14,6 +14,8 @@ public class CharacterController2D : MonoBehaviour
     Vector2 lastSlopeNormalPerp;
     private bool verticalCollided;
     private bool horizontalCollided;
+    private bool verticalSpeedReset;
+    private bool horizontalSpeedReset;
     private bool below;
     private bool isGround;
     private bool edge;
@@ -99,16 +101,22 @@ public class CharacterController2D : MonoBehaviour
         {
             isGround = below;
             below = verticalCollided = horizontalCollided = false;
+            verticalSpeedReset = horizontalSpeedReset = true;
             lastSlopeNormalPerp = slopeNormalPerp;
         }
 
         //运动结束后速度的计算
         void MoveEnd()
         {
-            velocity = deltaMovement / Time.fixedDeltaTime;
-            if (horizontalCollided)
+            //SpeedReset变量用于防止向移动方向弹出的时候会在离开碰撞体时把速度归零
+            if (!horizontalCollided)
+                velocity.x = deltaMovement.x / Time.fixedDeltaTime;
+            if (!verticalCollided)
+                velocity.y = deltaMovement.y / Time.fixedDeltaTime;
+            //确保了碰撞弹出的时候不会吧弹出的速度计算为移动速度
+            if (horizontalCollided && horizontalSpeedReset) 
                 velocity.x = 0;
-            if (verticalCollided || below)
+            if ((verticalCollided || below) && verticalSpeedReset) 
                 velocity.y = 0;
         }
     }
@@ -205,17 +213,18 @@ public class CharacterController2D : MonoBehaviour
 
             offset = GroundCollisinCheck(Hit[2].distance, deltaMovement);
         }
-        
-        if(slopeNormalPerp==Vector2.zero)
+
+        if (slopeNormalPerp == Vector2.zero)
         {
             //离开边缘为斜坡的平台的最后一次检测，此时角色已经离开地面所以检测不到斜坡斜率，所以使用上一次检测的斜率
             deltaMovement.y = deltaMovement.x * lastSlopeNormalPerp.y + offset;
             deltaMovement.x *= lastSlopeNormalPerp.x;
         }
         else
-        deltaMovement.y = deltaMovement.x * slopeNormalPerp.y + offset;
-        deltaMovement.x *= slopeNormalPerp.x;
-
+        {
+            deltaMovement.y = deltaMovement.x * slopeNormalPerp.y + offset;
+            deltaMovement.x *= slopeNormalPerp.x;
+        }
         //横向碰撞
         RayHorizontal(checkPos, Vector2.right * deltaMovement.x, ref Hit, horizontalRayDistance);
         HorizontalCollisionCheck(Hit, ref deltaMovement, deltaMovement.x);
@@ -243,12 +252,14 @@ public class CharacterController2D : MonoBehaviour
 
         RayVertical(checkPos, rayDirection, ref Hit[0], ref Hit[1], rayDistance);
         VerticalCollisionCheck(Hit, ref deltaMovement, rayDirection.y);
+        verticalSpeedReset = verticalCollided;
 
         if (!below && moveDirection >= 0)
         {
             rayDirection *= -1;
             RayVertical(checkPos, rayDirection, ref Hit[0], ref Hit[1], rayDistance);
             VerticalCollisionCheck(Hit, ref deltaMovement, rayDirection.y);
+            verticalSpeedReset=(verticalSpeedReset==verticalCollided)?true:false;
         }
     }
 
@@ -259,10 +270,12 @@ public class CharacterController2D : MonoBehaviour
 
         RayHorizontal(checkPos, rayDirection, ref Hit, horizontalRayDistance);
         HorizontalCollisionCheck(Hit, ref deltaMovement, rayDirection.x);
+        horizontalSpeedReset = horizontalCollided;
 
         rayDirection *= -1;
         RayHorizontal(checkPos, rayDirection, ref Hit, horizontalRayDistance);
         HorizontalCollisionCheck(Hit, ref deltaMovement, rayDirection.x);
+        horizontalSpeedReset =(horizontalSpeedReset==horizontalCollided)?true:false;
     }
 
     //射线检测，并且将未命中的射线的距离设置成1000，便于后续判断
