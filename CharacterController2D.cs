@@ -16,8 +16,8 @@ public class CharacterController2D : MonoBehaviour
     private bool horizontalCollided;
     private bool verticalSpeedReset;
     private bool horizontalSpeedReset;
-    private bool below;
     private bool isGround;
+    private bool isGrounded;
     private bool edge;
     [HideInInspector]
     public Vector2 velocity;
@@ -80,7 +80,7 @@ public class CharacterController2D : MonoBehaviour
 
         ResetState();
 
-        if (isGround & movement.y <= 0)//在地面移动时的特例
+        if (isGrounded & movement.y <= 0)//在地面移动时的特例
         {
             MoveGround(ref deltaMovement, checkPos);
             transform.Translate(deltaMovement);
@@ -99,8 +99,8 @@ public class CharacterController2D : MonoBehaviour
 
         void ResetState()
         {
-            isGround = below;
-            below = verticalCollided = horizontalCollided = false;
+            isGrounded = isGround;
+            isGround = verticalCollided = horizontalCollided = false;
             verticalSpeedReset = horizontalSpeedReset = true;
             lastSlopeNormalPerp = slopeNormalPerp;
         }
@@ -116,7 +116,7 @@ public class CharacterController2D : MonoBehaviour
             //确保了碰撞弹出的时候不会吧弹出的速度计算为移动速度
             if (horizontalCollided && horizontalSpeedReset) 
                 velocity.x = 0;
-            if ((verticalCollided || below) && verticalSpeedReset) 
+            if ((verticalCollided || isGround) && verticalSpeedReset) 
                 velocity.y = 0;
         }
     }
@@ -166,7 +166,7 @@ public class CharacterController2D : MonoBehaviour
         {
             verticalCollided = true;
             if (rayDirection < 0)
-                below = true;
+                isGround = true;
 
             deltaMovement.y = CollisionCheck(Hit[0].distance, rayDirection);
         }
@@ -174,7 +174,7 @@ public class CharacterController2D : MonoBehaviour
         {
             verticalCollided = true;
             if (rayDirection < 0)
-                below = true;
+                isGround = true;
 
             deltaMovement.y = CollisionCheck(Hit[1].distance, rayDirection);
         }
@@ -196,7 +196,7 @@ public class CharacterController2D : MonoBehaviour
             Debug.DrawRay(Hit[1].point, slopeNormalPerp, UnityEngine.Color.red);
 
             if (deltaMovement.y < -Hit[1].distance)
-                below = true;
+                isGround = true;
 
             offset = GroundCollisinCheck(Hit[1].distance, deltaMovement);
         }
@@ -209,7 +209,7 @@ public class CharacterController2D : MonoBehaviour
             Debug.DrawRay(Hit[2].point, slopeNormalPerp, UnityEngine.Color.red);
 
             if (deltaMovement.y < -Hit[2].distance)
-                below = true;
+                isGround = true;
 
             offset = GroundCollisinCheck(Hit[2].distance, deltaMovement);
         }
@@ -254,7 +254,7 @@ public class CharacterController2D : MonoBehaviour
         VerticalCollisionCheck(Hit, ref deltaMovement, rayDirection.y);
         verticalSpeedReset = verticalCollided;
 
-        if (!below && moveDirection >= 0)
+        if (!isGround && moveDirection >= 0)
         {
             rayDirection *= -1;
             RayVertical(checkPos, rayDirection, ref Hit[0], ref Hit[1], rayDistance);
@@ -310,8 +310,8 @@ public class CharacterController2D : MonoBehaviour
         RaySetReturn(ref Hit[2], checkPos, direction, coll.size.x, horizontalCheckDistance);
     }
 
-    public bool GetBelow()
+    public bool GetIsGround()
     {
-        return below;
+        return isGround;
     }
 }
