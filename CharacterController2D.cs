@@ -310,8 +310,8 @@ public class CharacterController2D : MonoBehaviour
         RaySetReturn(ref Hit[2], checkPos, direction, coll.size.x, horizontalCheckDistance);
     }
 
-    public bool GetIsGround()
+    public bool GetBelow()
     {
-        return isGround;
+        return below;
     }
 }
