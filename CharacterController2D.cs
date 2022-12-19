@@ -309,4 +309,9 @@ public class CharacterController2D : MonoBehaviour
         checkPos.y -= rayDistance * coll.size.y;
         RaySetReturn(ref Hit[2], checkPos, direction, coll.size.x, horizontalCheckDistance);
     }
+
+    public bool GetIsGround()
+    {
+        return isGround;
+    }
 }
