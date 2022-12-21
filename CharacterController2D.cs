@@ -91,6 +91,7 @@ public class CharacterController2D : MonoBehaviour
 
         if (deltaMovement.y != 0)
             MoveVertical(ref deltaMovement, checkPos);
+        checkPos.y += deltaMovement.y;
         if (deltaMovement.x != 0 || deltaMovement.y != 0)
             MoveHorizontal(ref deltaMovement, checkPos);
         transform.Translate(deltaMovement);
