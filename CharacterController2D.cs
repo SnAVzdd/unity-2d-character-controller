@@ -53,6 +53,7 @@ public class CharacterController2D : MonoBehaviour
 
     public LayerMask platformMask;
 
+    public bool showDebugRay = false;
 
     void Start()
     {
@@ -92,6 +93,7 @@ public class CharacterController2D : MonoBehaviour
         if (deltaMovement.y != 0)
             MoveVertical(ref deltaMovement, checkPos);
         checkPos.y += deltaMovement.y;
+
         if (deltaMovement.x != 0 || deltaMovement.y != 0)
             MoveHorizontal(ref deltaMovement, checkPos);
         transform.Translate(deltaMovement);
@@ -193,8 +195,11 @@ public class CharacterController2D : MonoBehaviour
             slopeNormalPerp = edge ? Vector2.right : -Vector2.Perpendicular(Hit[1].normal).normalized;
             deltaMovement.y = edge ? deltaMovement.y : -math.abs(deltaMovement.x * slopeNormalPerp.y) - gripDegree;
 
-            Debug.DrawRay(Hit[1].point, Hit[1].normal, UnityEngine.Color.red);
-            Debug.DrawRay(Hit[1].point, slopeNormalPerp, UnityEngine.Color.red);
+            if(showDebugRay)
+            {
+                Debug.DrawRay(Hit[1].point, Hit[1].normal, UnityEngine.Color.red);
+                Debug.DrawRay(Hit[1].point, slopeNormalPerp, UnityEngine.Color.red);
+            }
 
             if (deltaMovement.y < -Hit[1].distance)
                 isGround = true;
@@ -206,8 +211,11 @@ public class CharacterController2D : MonoBehaviour
             slopeNormalPerp = edge ? Vector2.right : -Vector2.Perpendicular(Hit[2].normal).normalized;
             deltaMovement.y = edge ? deltaMovement.y : -math.abs(deltaMovement.x * slopeNormalPerp.y) - gripDegree;
 
-            Debug.DrawRay(Hit[2].point, Hit[2].normal, UnityEngine.Color.red);
-            Debug.DrawRay(Hit[2].point, slopeNormalPerp, UnityEngine.Color.red);
+            if(showDebugRay)
+            {
+                Debug.DrawRay(Hit[2].point, Hit[2].normal, UnityEngine.Color.red);
+                Debug.DrawRay(Hit[2].point, slopeNormalPerp, UnityEngine.Color.red);
+            }
 
             if (deltaMovement.y < -Hit[2].distance)
                 isGround = true;
@@ -282,7 +290,9 @@ public class CharacterController2D : MonoBehaviour
     //射线检测，并且将未命中的射线的距离设置成1000，便于后续判断
     void RaySetReturn(ref RaycastHit2D Hit, Vector2 checkPos, Vector2 direction, float size, float CheckDistance)
     {
-        Debug.DrawRay(checkPos, direction.normalized * CheckDistance * size / 2);
+        if(showDebugRay)
+            Debug.DrawRay(checkPos, direction.normalized * CheckDistance * size / 2);
+
         Hit = Physics2D.Raycast(checkPos, direction, CheckDistance * size / 2, platformMask);
         Hit.distance -= size / 2;
         if (!Hit)
