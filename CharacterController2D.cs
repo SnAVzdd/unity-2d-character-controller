@@ -53,7 +53,7 @@ public class CharacterController2D : MonoBehaviour
 
     public LayerMask platformMask;
 
-    public bool showDebugRay = false;
+    private bool showDebugRay = false;
 
     void Start()
     {
