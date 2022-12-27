@@ -53,7 +53,7 @@ public class CharacterController2D : MonoBehaviour
 
     public LayerMask platformMask;
 
-    private bool showDebugRay = false;
+    private bool showDebugRay = true;
 
     void Start()
     {
@@ -162,6 +162,10 @@ public class CharacterController2D : MonoBehaviour
     void VerticalCollisionCheck(RaycastHit2D[] Hit, ref Vector2 deltaMovement, float rayDirection)
     {
         rayDirection = math.sign(rayDirection);
+
+        //使得撞上平台边缘的时候竖直和水平的弹出不会同时触发
+        if (-Hit[0].distance >= (1 - horizontalRayDistance) * coll.size.y / 2 || -Hit[1].distance >= (1 - horizontalRayDistance) * coll.size.y / 2)
+            return;
 
         if (Hit[0].distance == 1000f && Hit[1].distance == 1000f)
             return;
