@@ -23,11 +23,11 @@ public class CharacterController2D : MonoBehaviour
     public Vector2 velocity;
     [Header("碰撞检测参数")]
     [SerializeField]//射线检测的距离
-    [Range(1, 2)]
+    [Range(1, 4)]
     float verticalCheckDistance = 1.2f;
 
     [SerializeField]
-    [Range(1, 2)]
+    [Range(1, 4)]
     float horizontalCheckDistance = 1.2f;
 
     //射线之间的距离
@@ -141,17 +141,13 @@ public class CharacterController2D : MonoBehaviour
 
         if (Hit[0].distance == 1000f && Hit[1].distance == 1000f && Hit[2].distance == 1000f)
             return;
-        else if (Hit[0].distance <= Hit[1].distance && Hit[0].distance <= Hit[2].distance && Hit[0].distance < deltaMovement.x * rayDirection)
-        {
-            horizontalCollided = true;
-            deltaMovement.x = CollisionCheck(Hit[0].distance, rayDirection);
-        }
-        else if (Hit[1].distance <= Hit[0].distance && Hit[1].distance <= Hit[2].distance && Hit[1].distance < deltaMovement.x * rayDirection)
-        {
-            horizontalCollided = true;
-            deltaMovement.x = CollisionCheck(Hit[1].distance, rayDirection);
-        }
-        else if (Hit[2].distance <= Hit[0].distance && Hit[2].distance <= Hit[1].distance && Hit[2].distance < deltaMovement.x * rayDirection)
+
+        if (Hit[0].distance <= Hit[1].distance && Hit[0].distance <= Hit[2].distance)
+            Hit[2] = Hit[0];
+        else if (Hit[1].distance <= Hit[0].distance && Hit[1].distance <= Hit[2].distance)
+            Hit[2] = Hit[1];
+
+        if (Hit[2].distance < deltaMovement.x * rayDirection)
         {
             horizontalCollided = true;
             deltaMovement.x = CollisionCheck(Hit[2].distance, rayDirection);
@@ -166,18 +162,13 @@ public class CharacterController2D : MonoBehaviour
         //使得撞上平台边缘的时候竖直和水平的弹出不会同时触发
         if (-Hit[0].distance >= (1 - horizontalRayDistance) * coll.size.y / 2 || -Hit[1].distance >= (1 - horizontalRayDistance) * coll.size.y / 2)
             return;
-
         if (Hit[0].distance == 1000f && Hit[1].distance == 1000f)
             return;
-        else if (Hit[0].distance <= Hit[1].distance && Hit[0].distance < deltaMovement.y * rayDirection)
-        {
-            verticalCollided = true;
-            if (rayDirection < 0)
-                isGround = true;
 
-            deltaMovement.y = CollisionCheck(Hit[0].distance, rayDirection);
-        }
-        else if (Hit[0].distance > Hit[1].distance && Hit[1].distance < deltaMovement.y * rayDirection)
+        if (Hit[0].distance <= Hit[1].distance)
+            Hit[1] = Hit[0];
+
+        if (Hit[1].distance < deltaMovement.y * rayDirection) 
         {
             verticalCollided = true;
             if (rayDirection < 0)
@@ -195,52 +186,33 @@ public class CharacterController2D : MonoBehaviour
         RayVertical(checkPos, Vector2.down, ref Hit[1], ref Hit[2], edge ? verticalRayDistance : specialRayDistance);
 
         if (Hit[1].distance < Hit[2].distance)
+            Hit[2] = Hit[1];
+
+        slopeNormalPerp = edge ? Vector2.right : -Vector2.Perpendicular(Hit[2].normal).normalized;
+        deltaMovement.y = edge ? deltaMovement.y : -math.abs(deltaMovement.x * slopeNormalPerp.y) - gripDegree;
+
+        if (showDebugRay)
         {
-            slopeNormalPerp = edge ? Vector2.right : -Vector2.Perpendicular(Hit[1].normal).normalized;
-            deltaMovement.y = edge ? deltaMovement.y : -math.abs(deltaMovement.x * slopeNormalPerp.y) - gripDegree;
-
-            if(showDebugRay)
-            {
-                Debug.DrawRay(Hit[1].point, Hit[1].normal, UnityEngine.Color.red);
-                Debug.DrawRay(Hit[1].point, slopeNormalPerp, UnityEngine.Color.red);
-            }
-
-            if (deltaMovement.y < -Hit[1].distance)
-                isGround = true;
-
-            offset = GroundCollisinCheck(Hit[1].distance, deltaMovement);
-        }
-        else
-        {
-            slopeNormalPerp = edge ? Vector2.right : -Vector2.Perpendicular(Hit[2].normal).normalized;
-            deltaMovement.y = edge ? deltaMovement.y : -math.abs(deltaMovement.x * slopeNormalPerp.y) - gripDegree;
-
-            if(showDebugRay)
-            {
-                Debug.DrawRay(Hit[2].point, Hit[2].normal, UnityEngine.Color.red);
-                Debug.DrawRay(Hit[2].point, slopeNormalPerp, UnityEngine.Color.red);
-            }
-
-            if (deltaMovement.y < -Hit[2].distance)
-                isGround = true;
-
-            offset = GroundCollisinCheck(Hit[2].distance, deltaMovement);
+            Debug.DrawRay(Hit[2].point, Hit[2].normal, UnityEngine.Color.red);
+            Debug.DrawRay(Hit[2].point, slopeNormalPerp, UnityEngine.Color.red);
         }
 
+        if (deltaMovement.y < -Hit[2].distance)
+            isGround = true;
+
+        offset = GroundCollisinCheck(Hit[2].distance, deltaMovement);
+
+        //离开边缘为斜坡的平台的最后一次检测，此时角色已经离开地面所以检测不到斜坡斜率，所以使用上一次检测的斜率
         if (slopeNormalPerp == Vector2.zero)
-        {
-            //离开边缘为斜坡的平台的最后一次检测，此时角色已经离开地面所以检测不到斜坡斜率，所以使用上一次检测的斜率
-            deltaMovement.y = deltaMovement.x * lastSlopeNormalPerp.y + offset;
-            deltaMovement.x *= lastSlopeNormalPerp.x;
-        }
-        else
-        {
-            deltaMovement.y = deltaMovement.x * slopeNormalPerp.y + offset;
-            deltaMovement.x *= slopeNormalPerp.x;
-        }
+            slopeNormalPerp = lastSlopeNormalPerp;
+
+        deltaMovement.x *= slopeNormalPerp.x;
+
         //横向碰撞
         RayHorizontal(checkPos, Vector2.right * deltaMovement.x, ref Hit, horizontalRayDistance);
         HorizontalCollisionCheck(Hit, ref deltaMovement, deltaMovement.x);
+
+        deltaMovement.y = deltaMovement.x / slopeNormalPerp.x * slopeNormalPerp.y + offset;
 
         //计算地面移动时y轴的碰撞
         float GroundCollisinCheck(float distance, Vector2 deltaMovement)
