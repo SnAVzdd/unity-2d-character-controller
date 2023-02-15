@@ -9,9 +9,8 @@ using UnityEngine;
 public class CharacterController2D : MonoBehaviour
 {
     BoxCollider2D coll;
-    Rigidbody2D Rig;
-    Vector2 slopeNormalPerp;
-    Vector2 lastSlopeNormalPerp;
+    Vector2 slopeNormalPerp = Vector2.right;
+    Vector2 lastSlopeNormalPerp = Vector2.right;
     private bool verticalCollided;
     private bool horizontalCollided;
     private bool verticalSpeedReset;
@@ -19,47 +18,57 @@ public class CharacterController2D : MonoBehaviour
     private bool isGround;
     private bool isGrounded;
     private bool edge;
+
     [HideInInspector]
     public Vector2 velocity;
-    [Header("碰撞检测参数")]
-    [SerializeField]//射线检测的距离
-    [Range(1, 4)]
-    float verticalCheckDistance = 1.2f;
 
-    [SerializeField]
-    [Range(1, 4)]
-    float horizontalCheckDistance = 1.2f;
+    [Header("碰撞检测参数")]
 
     //射线之间的距离
-    [SerializeField]//向下掉落的时候射线的距离，即角色在向下掉落的时候的碰撞箱宽度
-    [Range(0, 1)]
-    float verticalRayDistance = 0.8f;
-
     [SerializeField]
     [Range(0, 1)]
-    float horizontalRayDistance = 0.5f;
+    float horizontalRayDistance = 0.6f;
 
-    [SerializeField]//特殊情况下的向下射线距离，调小可以使得角色爬坡时贴合斜坡，跳跃不容易被上方物体卡住，只要不是下落都会使用这个
+    [SerializeField]//向下掉落的时候射线的距离
     [Range(0, 1)]
-    float specialRayDistance = 0.2f;
+    float downRayDistance = 0.8f;
+
+    [SerializeField]//向上移动时（如跳跃）向上检测的射线直接的距离
+    [Range(0, 1)]
+    float upRayDistance = 0f;
+
+    [SerializeField]//在地面时向下检测的射线距离
+    [Range(0, 1)]
+    float groundRayDistance = 0.2f;
 
     [SerializeField]
     [Range(0, 1f)]//从墙体中弹出的最大速度
-    float CollisionHardness = 0.1f;
+    float CollisionHardness = 0.5f;
 
     [SerializeField]
     [Range(0, 1f)]//在地面时的向下速度，太小角色对地面的判定可能会不太灵，太大也会有毛病
     float gripDegree = 0.08f;
 
+    //水平碰撞会无视这个角度以下的斜坡，刚刚好相等可能不会工作的很正常，可以调的比实际需要的值大一些
+    //*注意*：这个参数只能让水平碰撞的射线检测无视斜坡，不能限制角色爬坡，如果有高于这个角度的斜坡出现不会正常工作
+    [SerializeField]
+    [Range(0, 90)]
+    float horizontalIgnoreDegree = 46f;
+
+    float verticalCheckDistance;
+    float horizontalCheckDistance;
+
+    float sizeX;
+    float sizeY;
+
     public LayerMask platformMask;
 
-    private bool showDebugRay = true;
+    public bool drawDebugRay = false;
 
-    void Start()
+    void Awake()
     {
         coll = gameObject.GetComponent<BoxCollider2D>();
     }
-
 
     private void FixedUpdate()
     {
@@ -68,13 +77,22 @@ public class CharacterController2D : MonoBehaviour
 
     public void Move(Vector2 movement)
     {
+        sizeX = math.abs(transform.localScale.x * coll.size.x);
+        sizeY = math.abs(transform.localScale.y * coll.size.y);
+
         var checkPos = transform.position + new Vector3(coll.offset.x, coll.offset.y, 0);
         var deltaMovement = movement * Time.fixedDeltaTime;
+
+        verticalCheckDistance = math.abs(deltaMovement.y) + sizeY / 2 + 0.5f;
+        horizontalCheckDistance = math.abs(deltaMovement.x) + sizeX / 2 + 0.5f;
+
         //判断是否在平台的边缘
-        edge = !Physics2D.Raycast(checkPos, Vector2.down, verticalCheckDistance * coll.size.y - coll.size.y / 2, platformMask);
+        edge = !Physics2D.Raycast(checkPos + Vector3.up * sizeY / 2, Vector2.down, verticalCheckDistance + sizeY / 2, platformMask);
+
         //检测是否会落在斜坡上
         RaycastHit2D[] Hit = new RaycastHit2D[2];
-        RayVertical(checkPos, Vector2.down, ref Hit[0], ref Hit[1], verticalRayDistance);
+        RayVertical(checkPos, Vector2.down, ref Hit[0], ref Hit[1], downRayDistance);
+
         //如果检测到了斜坡那么不算在边缘
         if (math.abs((Hit[0].distance < Hit[1].distance ? Hit[0].normal : Hit[1].normal).x) > 0.001f)
             edge = false;
@@ -90,13 +108,23 @@ public class CharacterController2D : MonoBehaviour
             return;
         }
 
-        if (deltaMovement.y != 0)
-            MoveVertical(ref deltaMovement, checkPos);
-        checkPos.y += deltaMovement.y;
-
         if (deltaMovement.x != 0 || deltaMovement.y != 0)
-            MoveHorizontal(ref deltaMovement, checkPos);
-        transform.Translate(deltaMovement);
+        {
+            if (deltaMovement.y >= 0)
+            {
+                MoveVertical(ref deltaMovement, checkPos);
+                checkPos.y += deltaMovement.y;
+                MoveHorizontal(ref deltaMovement, checkPos);
+                transform.Translate(deltaMovement);
+            }
+            else
+            {
+                MoveHorizontal(ref deltaMovement, checkPos);
+                checkPos.x += deltaMovement.x;
+                MoveVertical(ref deltaMovement, checkPos);
+                transform.Translate(deltaMovement);
+            }
+        }
 
         MoveEnd();
 
@@ -106,16 +134,18 @@ public class CharacterController2D : MonoBehaviour
             isGround = verticalCollided = horizontalCollided = false;
             verticalSpeedReset = horizontalSpeedReset = true;
             lastSlopeNormalPerp = slopeNormalPerp;
+            slopeNormalPerp = Vector2.right;
         }
 
         //运动结束后速度的计算
         void MoveEnd()
         {
-            //SpeedReset变量用于防止向移动方向弹出的时候会在离开碰撞体时把速度归零
-            if (!horizontalCollided)
-                velocity.x = deltaMovement.x / Time.fixedDeltaTime;
             if (!verticalCollided)
-                velocity.y = deltaMovement.y / Time.fixedDeltaTime;
+                velocity.y = (isGround ? 0 : deltaMovement.y) / Time.fixedDeltaTime;
+            if (!horizontalCollided)
+                velocity.x = (isGround ? deltaMovement.x / slopeNormalPerp.x : deltaMovement.x * lastSlopeNormalPerp.x) / Time.fixedDeltaTime;
+
+            //SpeedReset变量用于防止向移动方向弹出的时候会在离开碰撞体时把速度归零
             //确保了碰撞弹出的时候不会吧弹出的速度计算为移动速度
             if (horizontalCollided && horizontalSpeedReset) 
                 velocity.x = 0;
@@ -149,7 +179,7 @@ public class CharacterController2D : MonoBehaviour
 
         if (Hit[2].distance < deltaMovement.x * rayDirection)
         {
-            horizontalCollided = true;
+            horizontalCollided = Hit[2].normal != Vector2.zero;
             deltaMovement.x = CollisionCheck(Hit[2].distance, rayDirection);
         }
     }
@@ -159,14 +189,20 @@ public class CharacterController2D : MonoBehaviour
     {
         rayDirection = math.sign(rayDirection);
 
-        //使得撞上平台边缘的时候竖直和水平的弹出不会同时触发
-        if (-Hit[0].distance >= (1 - horizontalRayDistance) * coll.size.y / 2 || -Hit[1].distance >= (1 - horizontalRayDistance) * coll.size.y / 2)
-            return;
         if (Hit[0].distance == 1000f && Hit[1].distance == 1000f)
             return;
 
         if (Hit[0].distance <= Hit[1].distance)
             Hit[1] = Hit[0];
+
+        //使得撞上平台边缘的时候竖直和水平的弹出不会同时触发（会导致斜坡穿模所以不使用了）
+        //if (-Hit[1].distance >= (1 - horizontalRayDistance) * sizeY / 2)
+        //    return;
+
+        if (Hit[1].distance < 0 && deltaMovement.y > 0
+            && deltaMovement.x * Vector2.SignedAngle(-Vector2.Perpendicular(Hit[1].normal) * deltaMovement.x, Vector2.right * deltaMovement.x)
+            < deltaMovement.x * Vector2.SignedAngle(deltaMovement, Vector2.right * deltaMovement.x)) 
+            isGround = true;
 
         if (Hit[1].distance < deltaMovement.y * rayDirection) 
         {
@@ -183,7 +219,7 @@ public class CharacterController2D : MonoBehaviour
         RaycastHit2D[] Hit = new RaycastHit2D[3];
         var offset = 0f;
 
-        RayVertical(checkPos, Vector2.down, ref Hit[1], ref Hit[2], edge ? verticalRayDistance : specialRayDistance);
+        RayVertical(checkPos, Vector2.down, ref Hit[1], ref Hit[2], edge ? downRayDistance : groundRayDistance);
 
         if (Hit[1].distance < Hit[2].distance)
             Hit[2] = Hit[1];
@@ -191,7 +227,7 @@ public class CharacterController2D : MonoBehaviour
         slopeNormalPerp = edge ? Vector2.right : -Vector2.Perpendicular(Hit[2].normal).normalized;
         deltaMovement.y = edge ? deltaMovement.y : -math.abs(deltaMovement.x * slopeNormalPerp.y) - gripDegree;
 
-        if (showDebugRay)
+        if (drawDebugRay)
         {
             Debug.DrawRay(Hit[2].point, Hit[2].normal, UnityEngine.Color.red);
             Debug.DrawRay(Hit[2].point, slopeNormalPerp, UnityEngine.Color.red);
@@ -217,21 +253,20 @@ public class CharacterController2D : MonoBehaviour
         //计算地面移动时y轴的碰撞
         float GroundCollisinCheck(float distance, Vector2 deltaMovement)
         {
-            if (distance < Math.Abs(deltaMovement.y))
-            {
-                if (distance < 0 && distance < -CollisionHardness)
-                    return -Math.Sign(deltaMovement.y) * CollisionHardness;
-                else
-                    return distance * Math.Sign(deltaMovement.y);
-            }
-            return 0;
+            if(distance >= Math.Abs(deltaMovement.y))
+                return 0;
+
+            if (distance < 0 && distance < -CollisionHardness)
+                return -Math.Sign(deltaMovement.y) * CollisionHardness;
+            else
+                return distance * Math.Sign(deltaMovement.y);
         }
     }
 
     void MoveVertical(ref Vector2 deltaMovement, Vector2 checkPos)
     {
         RaycastHit2D[] Hit = new RaycastHit2D[2];
-        var rayDistance = (edge && deltaMovement.y < 0) ? verticalRayDistance : specialRayDistance;
+        var rayDistance = (deltaMovement.y < 0) ? (edge ? downRayDistance : groundRayDistance) : upRayDistance;
         var rayDirection = deltaMovement.y != 0 ? Vector2.up * deltaMovement.y : Vector2.up;
         var moveDirection = deltaMovement.y;
 
@@ -241,10 +276,11 @@ public class CharacterController2D : MonoBehaviour
 
         if (!isGround && moveDirection >= 0)
         {
+            rayDistance = (rayDistance == upRayDistance) ? (edge ? downRayDistance : groundRayDistance) : upRayDistance;
             rayDirection *= -1;
             RayVertical(checkPos, rayDirection, ref Hit[0], ref Hit[1], rayDistance);
             VerticalCollisionCheck(Hit, ref deltaMovement, rayDirection.y);
-            verticalSpeedReset=(verticalSpeedReset==verticalCollided)?true:false;
+            verticalSpeedReset = verticalSpeedReset == verticalCollided;
         }
     }
 
@@ -260,16 +296,16 @@ public class CharacterController2D : MonoBehaviour
         rayDirection *= -1;
         RayHorizontal(checkPos, rayDirection, ref Hit, horizontalRayDistance);
         HorizontalCollisionCheck(Hit, ref deltaMovement, rayDirection.x);
-        horizontalSpeedReset =(horizontalSpeedReset==horizontalCollided)?true:false;
+        horizontalSpeedReset = horizontalSpeedReset==horizontalCollided;
     }
 
     //射线检测，并且将未命中的射线的距离设置成1000，便于后续判断
     void RaySetReturn(ref RaycastHit2D Hit, Vector2 checkPos, Vector2 direction, float size, float CheckDistance)
     {
-        if(showDebugRay)
-            Debug.DrawRay(checkPos, direction.normalized * CheckDistance * size / 2);
+        if(drawDebugRay)
+            Debug.DrawRay(checkPos, direction.normalized * CheckDistance);
 
-        Hit = Physics2D.Raycast(checkPos, direction, CheckDistance * size / 2, platformMask);
+        Hit = Physics2D.Raycast(checkPos, direction, CheckDistance, platformMask);
         Hit.distance -= size / 2;
         if (!Hit)
             Hit.distance = 1000f;
@@ -278,27 +314,51 @@ public class CharacterController2D : MonoBehaviour
     //竖直的射线起点计算和射线检测
     void RayVertical(Vector2 checkPos, Vector2 direction, ref RaycastHit2D rayHit1, ref RaycastHit2D rayHit2, float rayDistance)
     {
-        checkPos.x += rayDistance * coll.size.x / 2;
-        RaySetReturn(ref rayHit1, checkPos, direction, coll.size.y, verticalCheckDistance);
+        checkPos.x += rayDistance * sizeX / 2;
+        RaySetReturn(ref rayHit1, checkPos, direction, sizeY, verticalCheckDistance);
 
-        checkPos.x -= rayDistance * coll.size.x;
-        RaySetReturn(ref rayHit2, checkPos, direction, coll.size.y, verticalCheckDistance);
+        checkPos.x -= rayDistance * sizeX;
+        RaySetReturn(ref rayHit2, checkPos, direction, sizeY, verticalCheckDistance);
     }
 
     //水平的射线起点计算和射线检测
     void RayHorizontal(Vector2 checkPos, Vector2 direction, ref RaycastHit2D[] Hit, float rayDistance)
     {
-        RaySetReturn(ref Hit[0], checkPos, direction, coll.size.x, horizontalCheckDistance);
+        RaySetReturn(ref Hit[0], checkPos, direction, sizeX, horizontalCheckDistance);
+        sloplimit(ref Hit[0]);
 
-        checkPos.y += rayDistance * coll.size.y / 2;
-        RaySetReturn(ref Hit[1], checkPos, direction, coll.size.x, horizontalCheckDistance);
+        checkPos.y += rayDistance * sizeY / 2;
+        RaySetReturn(ref Hit[1], checkPos, direction, sizeX, horizontalCheckDistance);
+        sloplimit(ref Hit[1]);
 
-        checkPos.y -= rayDistance * coll.size.y;
-        RaySetReturn(ref Hit[2], checkPos, direction, coll.size.x, horizontalCheckDistance);
+        checkPos.y -= rayDistance * sizeY;
+        RaySetReturn(ref Hit[2], checkPos, direction, sizeX, horizontalCheckDistance);
+        sloplimit(ref Hit[2]);
+
+        void sloplimit(ref RaycastHit2D hit)
+        {
+            if (math.abs(Vector2.Angle(hit.normal, Vector2.up)) > horizontalIgnoreDegree || hit.distance == 1000f)
+                return;
+
+            hit.distance += sizeY * (1 - groundRayDistance) / 2;
+            hit.normal = Vector2.zero;
+        }
+    }
+
+    public void LeaveGround()
+    {
+        isGround = false;
+        isGrounded = false;
     }
 
     public bool GetIsGround()
     {
         return isGround;
     }
+
+    public Vector2 GetSlopeNormalPerp()
+    {
+        return slopeNormalPerp;
+    }
+
 }
